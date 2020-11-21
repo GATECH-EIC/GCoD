@@ -1,6 +1,7 @@
 import os.path as osp
 import argparse
 
+import os
 import torch
 import torch.nn.functional as F
 import torch_geometric.utils.num_nodes as geo_num_nodes
@@ -11,10 +12,42 @@ from utils import *
 import numpy as np
 from torch_geometric.utils import dense_to_sparse
 from torch_sparse import SparseTensor
+# metis
+from torch_geometric.data import Data, ClusterData, ClusterLoader
+from torch_geometric.utils import to_dense_adj
+try:
+    torch.ops.torch_sparse.partition
+    with_metis = True
+except RuntimeError:
+    with_metis = False
+import pytest
+
+from scipy import sparse, io
 
 # device = torch.device("cpu")
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
+def to_scipy(index, value, m, n):
+    assert not index.is_cuda and not value.is_cuda
+    (row, col), data = index.detach(), value.detach()
+    return scipy.sparse.coo_matrix((data, (row, col)), (m, n))
+
+@pytest.mark.skipif(not with_metis, reason='Not compiled with METIS support')
+def cluster_graph(data, num_parts, save=True):
+    cluster_data = ClusterData(data, num_parts=num_parts, recursive=True, log=True)
+
+    # row, col, value = cluster_data.data.adj.coo()
+
+    edge_attr = torch.ones(cluster_data.data.adj.storage._row.size(0))
+    cluster_data.data.adj.set_value_(edge_attr, layout='coo')
+
+    if save is True:
+        eye = torch.eye(cluster_data.data.adj.size(0)).to_sparse().to(device)
+        adj = cluster_data.data.adj.to_torch_sparse_coo_tensor().to(device)
+        scipy_adj = SparseTensor.from_torch_sparse_coo_tensor(adj + eye).to_scipy()
+        io.mmwrite(f"./pretrain/{args.dataset}_adj.mtx", scipy_adj)
+
+    return cluster_data.data
 
 #
 # Differentiable conversion from edge_index/edge_attr to adj
@@ -51,18 +84,28 @@ class Net(torch.nn.Module):
                              normalize=not args.use_gdc)
         self.conv2 = GCNConv(hidden, dataset.num_classes,
                              normalize=not args.use_gdc)
-        # print(adj)
-        if data.edge_attr == None:
-            data.edge_attr = torch.ones(data.edge_index[0].size(0))
+        # zhihan write before
+        # if data.edge_attr == None:
+        #     data.edge_attr = torch.ones(data.edge_index[0].size(0))
+        # if len(adj) == 0:
+        #     self.adj1 = SparseTensor(row=data.edge_index[0], col=data.edge_index[1], value=torch.clone(data.edge_attr)).to_torch_sparse_coo_tensor().to(device)
+        #     self.adj1 = self.adj1 + torch.eye(self.adj1.shape[0]).to_sparse().to(device)
+        #     # self.adj1 = (torch.clone(data.edge_index).to(device), torch.clone(data.edge_attr).to(device))
+        # else:
+        #     self.adj1 = adj
+        # self.id = torch.eye(self.adj1.shape[0]).to_sparse().to(device)
+        # self.adj2 = self.adj1.clone()
+
+        # haoran write
         if len(adj) == 0:
-            self.adj1 = SparseTensor(row=data.edge_index[0], col=data.edge_index[1], value=torch.clone(data.edge_attr)).to_torch_sparse_coo_tensor().to(device)
+            self.adj1 = self.data.adj.to_torch_sparse_coo_tensor().to(device)
             self.adj1 = self.adj1 + torch.eye(self.adj1.shape[0]).to_sparse().to(device)
-            # self.adj1 = (torch.clone(data.edge_index).to(device), torch.clone(data.edge_attr).to(device))
         else:
             self.adj1 = adj
+
         self.id = torch.eye(self.adj1.shape[0]).to_sparse().to(device)
         self.adj2 = self.adj1.clone()
-        
+
 
     def forward(self):
         x = self.data.x
@@ -97,7 +140,7 @@ def test(model, data):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epochs', type=int, default=100)
+    parser.add_argument('--epochs', type=int, default=200)
     parser.add_argument('--use_gdc', type=bool, default=False)
     parser.add_argument("--dataset", type=str, default="CiteSeer") # choice: F: Flicker, C: DBLP, CiteSeer, Cora, Pumbed
     args = parser.parse_args()
@@ -117,8 +160,21 @@ if __name__ == "__main__":
     else: # normal
         dataset = Planetoid(path, dataset, transform=T.NormalizeFeatures())
     print(len(dataset))
-    data = dataset[0]    
+    data = dataset[0]
+
+    edge_attr = torch.ones(data.edge_index[0].size(0))
+    eye = torch.eye(data.x.size(0)).to_sparse().to(device)
+    oriadj = SparseTensor(row=data.edge_index[0], col=data.edge_index[1], value=torch.clone(edge_attr)).to_torch_sparse_coo_tensor().to(device)
+    scipy_oriadj = SparseTensor.from_torch_sparse_coo_tensor(oriadj + eye).to_scipy()
+    io.mmwrite(f"./pretrain/{args.dataset}_oriadj.mtx", scipy_oriadj)
+
+    ###
     print(data)
+    data = cluster_graph(data, num_parts=3)
+    print(data)
+    # exit()
+    ###
+
     model, data = Net(dataset, data, args), data.to(device)
     model = model.to(device)
     optimizer = torch.optim.Adam([
@@ -136,4 +192,6 @@ if __name__ == "__main__":
         print(log.format(epoch, train_acc, best_val_acc, test_acc))
     # print(model.state_dict().keys())
     # print('pretrain Epochs: ',args.epochs)
-    torch.save(model.state_dict(), f"./pretrain_pytorch/{args.dataset}_model.pth.tar")
+    if not osp.exists('./pretrain'):
+        os.mkdir('./pretrain')
+    torch.save({"state_dict":model.state_dict(),"adj":model.adj1}, f"./pretrain/{args.dataset}_model.pth.tar")

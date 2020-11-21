@@ -13,13 +13,18 @@ import numpy as np
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--epochs', type=int, default=100)
-parser.add_argument('--load_path', type=str, default="graph_pruned_pytorch/model.pth.tar")
-parser.add_argument("--use_state", type=bool,default=False)
-parser.add_argument("--save", type=str, default="model.pth.tar")
+parser.add_argument('--load_path', type=str, default="./graph_train/CiteSeer_prune_40.pth.tar")
+parser.add_argument("--use_state", type=bool,default=True)
+# parser.add_argument("--save", type=str, default="model.pth.tar")
+parser.add_argument('--save_dir', type=str, default='./retrain')
 parser.add_argument('--use_gdc', type=bool, default=False)
 parser.add_argument("--log", type=str, default="{:.4f}")
 parser.add_argument("--dataset", type=str, default="CiteSeer")
+parser.add_argument('--group', type=int, default=3)
+parser.add_argument('--class', type=int, default=3)
 args = parser.parse_args()
+
+# args.load_path = './pretrain/CiteSeer_model.pth.tar'
 
 dataset = args.dataset
 path = osp.join(osp.dirname(osp.realpath(__file__)), '..', 'data', dataset)
@@ -36,6 +41,7 @@ checkpoint = torch.load(args.load_path)
 state_dict = checkpoint["state_dict"]
 adj = checkpoint["adj"]
 # Preload model with pruned weights and adj
+data = cluster_graph(data, num_parts=args.group, save=False)
 model, data = Net(dataset, data, args, adj=adj).to(device), data.to(device)
 if args.use_state:
     model.load_state_dict(state_dict)
@@ -43,6 +49,11 @@ if args.use_state:
 train_acc, val_acc, tmp_test_acc = test(model, data)
 log = 'Loaded pruned model with accuracy: Train: {:.4f}, Val: {:.4f}, Test: {:.4f}'
 # print(log.format(train_acc, val_acc, tmp_test_acc))
+
+# create save dir
+if not osp.exists(args.save_dir):
+    os.mkdir(args.save_dir)
+
 
 optimizer = torch.optim.Adam([
     dict(params=model.conv1.parameters(), weight_decay=5e-4),
@@ -87,7 +98,7 @@ for epoch in range(1, args.epochs):
         log_4_test = args.log
         print(log_4_test.format(best_val_acc))
 # print(model.state_dict().keys())
-torch.save(model.state_dict(), f"./retrain_both_pytorch/{args.save}")
+torch.save(model.state_dict(), "{}/{}_retrain.pth.tar".format(args.save_dir, args.dataset))
 
 
 

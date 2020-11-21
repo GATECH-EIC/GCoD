@@ -1,6 +1,7 @@
 import os.path as osp
 import argparse
 
+import os
 import torch
 import torch.nn.functional as F
 import torch_geometric.utils.num_nodes as geo_num_nodes
@@ -12,21 +13,23 @@ from sparse_pytorch_train import *
 import numpy as np
 from torch_sparse import SparseTensor
 from scipy.sparse import coo_matrix, tril
-from scipy import sparse
+from scipy import sparse, io
 import torch.sparse as ts
 import logging
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--times', type=int, default=4)
 parser.add_argument('--epochs', type=int, default=25)
-parser.add_argument('--ratio_graph', type=int, default=90)
+parser.add_argument('--ratio_graph', type=int, default=40)
 parser.add_argument("--draw", type=int, default=100)
 parser.add_argument('--use_gdc', type=bool, default=False)
-parser.add_argument('--save_file', type=str, default="model.pth.tar")
 parser.add_argument('--lookback', type=int, default=3)
 parser.add_argument("--thres", type=float, default=0.0)
 parser.add_argument("--dataset", type=str, default="CiteSeer")
+parser.add_argument('--save_dir', type=str, default='./graph_train')
 parser.add_argument("--log", type=str, default="{:05d}")
+parser.add_argument('--group', type=int, default=3)
+parser.add_argument('--class', type=int, default=3)
 args = parser.parse_args()
 
 dataset = args.dataset
@@ -39,14 +42,18 @@ else:
     dataset = Planetoid(path, dataset, transform=T.NormalizeFeatures())
 # print(f"Number of graphs in {dataset} dataset:", len(dataset))
 data = dataset[0] # fetch the first graph
-model, data = Net(dataset, data, args).to(device), data.to(device)
-checkpoint = torch.load(f"./pretrain_pytorch/{args.dataset}_model.pth.tar")
-model.load_state_dict(checkpoint)
+checkpoint = torch.load(f"./pretrain/{args.dataset}_model.pth.tar")
+state_dict = checkpoint["state_dict"]
+adj = checkpoint["adj"]
+ori_nnz = np.count_nonzero(adj.cpu().to_dense().numpy())
+data = cluster_graph(data, num_parts=args.group, save=False)
+model, data = Net(dataset, data, args, adj=adj).to(device), data.to(device)
+model.load_state_dict(state_dict)
 
 loss = lambda m: F.nll_loss(m()[data.train_mask], data.y[data.train_mask])
 # print("construct admm training")
-support1 = model.adj1 # sparse 
-support2 = model.adj2 # sparse 
+support1 = model.adj1 # sparse
+support2 = model.adj2 # sparse
 partial_adj_mask = support1.clone()
 adj_variables = [support1,support2]
 rho = 1e-3
@@ -56,6 +63,10 @@ Z1 = U1 = Z2 = U2 = partial_adj_mask.clone()
 model.adj1.requires_grad = True
 model.adj2.requires_grad = True
 adj_mask = partial_adj_mask.clone()
+
+# create save dir
+if not osp.exists(args.save_dir):
+    os.mkdir(args.save_dir)
 
 # Update the gradient of the adjacency matrices
 # grads_vars: {name: torch.Tensor}
@@ -158,7 +169,7 @@ def post_processing(): # unused
     cur_adj1 = model.adj1.cpu().numpy()
     cur_adj2 = model.adj2.cpu().numpy()
 
-    torch.save({"state_dict":model.state_dict(),"adj":cur_adj1}, f"./graph_pruned_eb_pytorch/{args.save_file}")
+    torch.save({"state_dict":model.state_dict(),"adj":cur_adj1}, "{}/{}_prune_{}.pth.tar".format(args.save_dir, args.dataset, str(args.ratio_graph)))
 
 id1 = model.id
 id2 = model.id
@@ -168,7 +179,7 @@ id2 = model.id
 d1 = support1 + U1 - (Z1 + id1)
 d2 = support2 + U2 - (Z2 + id2)
 admm_loss = lambda m: loss(m) + \
-            rho * (torch.sum(d1.coalesce().values() * d1.coalesce().values()) + 
+            rho * (torch.sum(d1.coalesce().values() * d1.coalesce().values()) +
             torch.sum(d2.coalesce().values()*d2.coalesce().values()))
 
 adj_optimizer = torch.optim.SGD(adj_variables,lr=0.001)
@@ -190,8 +201,8 @@ for j in range(args.times):
         update_gradients_adj(adj_map, adj_mask)
         # Use the optimizer to update adjacency matrix
         # print("Support 1 grad:", support1.grad, support1.grad.shape)
-        adj_optimizer.step()  
-        # print(adj_variables[0][adj_variables[0] != 1])      
+        adj_optimizer.step()
+        # print(adj_variables[0][adj_variables[0] != 1])
         # print("Support values:", support1.coalesce().values()[support1.coalesce().values() < 0.9999])
 
         train_acc, val_acc, tmp_test_acc = test(model, data)
@@ -199,7 +210,7 @@ for j in range(args.times):
             best_prune_acc = val_acc
             test_acc = tmp_test_acc
         log = "Pruning Epoch: {:03d}, Train: {:.4f}, Val: {:.4f}, Test: {:.4f}".format(j*args.epochs+epoch, train_acc, val_acc, tmp_test_acc)
-        counter += 1        
+        counter += 1
         print(log.format(epoch, train_acc, best_prune_acc, tmp_test_acc))
 
 
@@ -222,6 +233,10 @@ adj2 = prune_adj(adj2 - id2, non_zero_idx, args.ratio_graph)
 model.adj1 = adj1.float()
 model.adj2 = adj2.float()
 
+scipy_adj = SparseTensor.from_torch_sparse_coo_tensor(model.adj1).to_scipy()
+print(scipy_adj)
+io.mmwrite(f"./pretrain/{args.dataset}_newadj.mtx", scipy_adj)
+
 # print("Optimization Finished!")
 train_acc, val_acc, tmp_test_acc = test(model, data)
 log = 'After tune results: Ratio: {:d}, Train: {:.4f}, Val: {:.4f}, Test: {:.4f}'
@@ -230,9 +245,10 @@ log_4_test = 'Tune Ratio: {:d}'
 print(log_4_test.format(args.ratio_graph))
 cur_adj1 = model.adj1.cpu().to_dense().numpy()
 cur_adj2 = model.adj2.cpu().to_dense().numpy()
+print("original number of non-zeros: ", ori_nnz)
 print("finish L1 training, num of edges * 2 + diag in adj1:", np.count_nonzero(cur_adj1))
 
-torch.save({"state_dict":model.state_dict(),"adj":model.adj1}, f"./graph_pruned_pytorch/{args.save_file}")
+torch.save({"state_dict":model.state_dict(),"adj":model.adj1}, "{}/{}_prune_{}.pth.tar".format(args.save_dir, args.dataset, str(args.ratio_graph)))
 
 
 
