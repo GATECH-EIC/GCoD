@@ -176,11 +176,19 @@ id2 = model.id
 # e = torch.ones(id1.shape[0]).to_sparse()
 # eT = torch.ones(id1.shape[0]).t.to_sparse()
 # Define new loss function
+_adj = SparseTensor.from_torch_sparse_coo_tensor(support1 - id1)
+row, col, value = _adj.coo()
+print(row)
+print(col)
+print(value)
+diagonalization = torch.sum(abs(row - col) * value)
+
 d1 = support1 + U1 - (Z1 + id1)
 d2 = support2 + U2 - (Z2 + id2)
 admm_loss = lambda m: loss(m) + \
-            rho * (torch.sum(d1.coalesce().values() * d1.coalesce().values()) +
-            torch.sum(d2.coalesce().values()*d2.coalesce().values()))
+            rho * (torch.sum(d1.coalesce().values() * d1.coalesce().values()) + \
+            torch.sum(d2.coalesce().values()*d2.coalesce().values())) + \
+            1e-2 * diagonalization
 
 adj_optimizer = torch.optim.SGD(adj_variables,lr=0.001)
 adj_map = {"support1": support1, "support2": support2}
