@@ -2,6 +2,7 @@ import os.path as osp
 import argparse
 
 import os
+import math
 import torch
 import torch.nn.functional as F
 import torch_geometric.utils.num_nodes as geo_num_nodes
@@ -42,6 +43,7 @@ else:
     dataset = Planetoid(path, dataset, transform=T.NormalizeFeatures())
 # print(f"Number of graphs in {dataset} dataset:", len(dataset))
 data = dataset[0] # fetch the first graph
+adj_size = data.x.size(0)
 checkpoint = torch.load(f"./pretrain/{args.dataset}_model.pth.tar")
 state_dict = checkpoint["state_dict"]
 adj = checkpoint["adj"]
@@ -171,16 +173,31 @@ def post_processing(): # unused
 
     torch.save({"state_dict":model.state_dict(),"adj":cur_adj1}, "{}/{}_prune_{}.pth.tar".format(args.save_dir, args.dataset, str(args.ratio_graph)))
 
+
+def count_group_nnz(adj, adj_size, group):
+    _adj = SparseTensor.from_torch_sparse_coo_tensor(adj)
+    row, col, value = _adj.coo()
+    group_nnz = np.zeros((group, group))
+    for i in range(len(value)):
+        x = math.floor(row[i] / math.ceil(adj_size / group))
+        y = math.floor(col[i] / math.ceil(adj_size / group))
+        # print(row[i], col[i])
+        # print(x, y)
+        group_nnz[x][y] += 1
+    return group_nnz
+
+group_nnz_bef = count_group_nnz(support1, adj_size, group=args.group)
+
 id1 = model.id
 id2 = model.id
 # e = torch.ones(id1.shape[0]).to_sparse()
 # eT = torch.ones(id1.shape[0]).t.to_sparse()
 # Define new loss function
-_adj = SparseTensor.from_torch_sparse_coo_tensor(support1 - id1)
+_adj = SparseTensor.from_torch_sparse_coo_tensor(support1)
 row, col, value = _adj.coo()
-print(row)
-print(col)
-print(value)
+# print(row)
+# print(col)
+# print(value)
 diagonalization = torch.sum(abs(row - col) * value)
 
 d1 = support1 + U1 - (Z1 + id1)
@@ -241,6 +258,8 @@ adj2 = prune_adj(adj2 - id2, non_zero_idx, args.ratio_graph)
 model.adj1 = adj1.float()
 model.adj2 = adj2.float()
 
+group_nnz_aft = count_group_nnz(model.adj1, adj_size, group=args.group)
+
 scipy_adj = SparseTensor.from_torch_sparse_coo_tensor(model.adj1).to_scipy()
 print(scipy_adj)
 io.mmwrite(f"./pretrain/{args.dataset}_newadj.mtx", scipy_adj)
@@ -255,6 +274,9 @@ cur_adj1 = model.adj1.cpu().to_dense().numpy()
 cur_adj2 = model.adj2.cpu().to_dense().numpy()
 print("original number of non-zeros: ", ori_nnz)
 print("finish L1 training, num of edges * 2 + diag in adj1:", np.count_nonzero(cur_adj1))
+
+print('group_nnz before pruning: \n', group_nnz_bef)
+print('group_nnz after pruning: \n', group_nnz_aft)
 
 torch.save({"state_dict":model.state_dict(),"adj":model.adj1}, "{}/{}_prune_{}.pth.tar".format(args.save_dir, args.dataset, str(args.ratio_graph)))
 
