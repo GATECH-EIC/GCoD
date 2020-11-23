@@ -19,10 +19,10 @@ import torch.sparse as ts
 import logging
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--iteration', type=int, default=4)
+parser.add_argument('--iteration', type=int, default=1)
 parser.add_argument('--times', type=int, default=4)
 parser.add_argument('--epochs', type=int, default=25)
-parser.add_argument('--ratio_graph', type=int, default=10)
+parser.add_argument('--ratio_graph', type=int, default=5)
 parser.add_argument("--draw", type=int, default=100)
 parser.add_argument('--use_gdc', type=bool, default=False)
 parser.add_argument('--lookback', type=int, default=3)
@@ -35,6 +35,8 @@ parser.add_argument('--num_classes', type=int, default=3)
 parser.add_argument('--total_subgraphs', type=int, default=10)
 args = parser.parse_args()
 
+
+
 dataset = args.dataset
 logging.basicConfig(filename=f"test_{dataset}_mask_change.txt",level=logging.DEBUG)
 path = osp.join(osp.dirname(osp.realpath(__file__)), '..', 'data', dataset)
@@ -46,7 +48,12 @@ elif dataset in ['Caltech36']:
 else:
     dataset = Planetoid(path, dataset, transform=T.NormalizeFeatures())
 data = dataset[0]
-degree_split = [3, 5] # for num_class = 3
+if args.dataset == 'CiteSeer':
+    degree_split = [3, 5] # for num_class = 3
+elif args.dataset == 'Cora':
+    degree_split = [4]
+elif args.dataset == 'Pubmed':
+    degree_split = [7, 12]
 data, n_subgraphs, class_graphs = my_partition_graph(data, degree_split, args.total_subgraphs, args.num_groups, dataset=args.dataset)
 n_subgraphs, n_classes, n_groups = my_get_boundary(n_subgraphs, class_graphs, args.num_groups)
 # # print(f"Number of graphs in {dataset} dataset:", len(dataset))
@@ -215,9 +222,9 @@ def identify_group(row, col, idx_list):
             if col < idx_list[i]:
                 y = i
         else:
-            if row > idx_list[i-1] and row < idx_list[i]:
+            if row >= idx_list[i-1] and row < idx_list[i]:
                 x = i
-            if col > idx_list[i-1] and col < idx_list[i]:
+            if col >= idx_list[i-1] and col < idx_list[i]:
                 y = i
     return x, y
 
@@ -237,25 +244,41 @@ def count_subgraph_nnz(edge_index, n_subgraphs):
 
 group_nnz_bef = count_group_nnz(support1, adj_size, group=args.num_groups)
 
-def remove_boundary_nodes_among_groups(edge_index, adj_size, group):
+def remove_boundary_nodes_among_groups(edge_index, adj_size, n_groups):
     row = edge_index[0]
     col = edge_index[1]
 
     remove_list = []
+    reserver_list = []
+    cnt = 0
     for i in range(len(row)):
-        x = math.floor(row[i] / math.ceil(adj_size / group))
-        y = math.floor(col[i] / math.ceil(adj_size / group))
+        if row[i] < n_groups[0]:
+            x = 0
+        else:
+            x = 1
+        if col[i] < n_groups[0]:
+            y = 0
+        else:
+            y = 1
         if x + y == 1:
             remove_list.append(i)
+        else:
+            reserver_list.append(i)
+            if x == 0 and y == 0:
+                cnt += 1
 
-    counter = 0
-    for i in range(len(remove_list)):
-        item = remove_list[i] - counter
-        row = torch.cat([row[:item], row[item+1:]])
-        col = torch.cat([col[:item], col[item+1:]])
-        counter += 1
+    # counter = 0
+    # for i in range(len(remove_list)):
+    #     item = remove_list[i] - counter
+    #     row = torch.cat([row[:item], row[item+1:]])
+    #     col = torch.cat([col[:item], col[item+1:]])
+    #     counter += 1
+    row = row[reserver_list]
+    col = col[reserver_list]
     edge_index = torch.stack([row, col])
-    return edge_index
+
+
+    return edge_index, cnt
 
 
 id1 = model.id
@@ -435,24 +458,56 @@ for iteration in range(args.iteration):
     ## --------------------------------------
     ## Graph Partition
     ## --------------------------------------
-    edge_index = remove_boundary_nodes_among_groups(data.edge_index, adj_size, args.num_groups)
-    data = Data(edge_index=edge_index, x=data.x, y=data.y, train_mask=data.train_mask, test_mask=data.test_mask, val_mask=data.val_mask)
-    # print('***'*20)
-    # print('re-partition at iteration {}'.format(iteration))
-    # print('***'*20)
+    if iteration == args.iteration - 1 :
+        edge_index, boundary = remove_boundary_nodes_among_groups(data.edge_index, adj_size, n_groups)
 
+        data = Data(edge_index=edge_index, x=data.x, y=data.y, train_mask=data.train_mask, test_mask=data.test_mask, val_mask=data.val_mask).to(torch.device("cpu"))
+
+    """
+    # print(boundary)
+    print(data)
+    data_1 = Data(edge_index=edge_index[:, :boundary], x=data.x[:n_groups[0]], y=data.y[:n_groups[0]], train_mask=data.train_mask[:n_groups[0]], test_mask=data.test_mask[:n_groups[0]], val_mask=data.val_mask[:n_groups[0]])
+    data_2 = Data(edge_index=edge_index[:, boundary:] - n_groups[0], x=data.x[n_groups[0]:], y=data.y[n_groups[0]:], train_mask=data.train_mask[n_groups[0]:], test_mask=data.test_mask[n_groups[0]:], val_mask=data.val_mask[n_groups[0]:])
+    print(data_1, data_2)
+
+    print('***'*20)
+    print('re-partition at iteration {}'.format(iteration))
+    print('***'*20)
+
+    degree_split = [3, 5] # for num_class = 3
+    data_1.to(torch.device("cpu"))
+    data_1, _, _ = my_partition_graph(data_1, degree_split, args.total_subgraphs//2, 1, dataset=args.dataset, remove_self_loop=False)
+    degree_split = [3, 5] # for num_class = 3
+    data_2.to(torch.device("cpu"))
+    data_2, _, _ = my_partition_graph(data_2, degree_split, args.total_subgraphs//2, 1, dataset=args.dataset, remove_self_loop=False)
+
+
+    print(data_1, data_2)
+    edge_index_1 = data_1.edge_index
+    edge_index_2 = data_2.edge_index[:] + n_groups[0]
+    edge_index = torch.cat([edge_index_1, edge_index_2], dim=1)
+    new_x = torch.cat([data_1.x, data_2.x], dim=0)
+    new_y = torch.cat([data_1.y, data_2.y], dim=0)
+    new_train_mask = torch.cat([data_1.train_mask, data_2.train_mask], dim=0)
+    new_val_mask = torch.cat([data_1.val_mask, data_2.val_mask], dim=0)
+    new_test_mask = torch.cat([data_1.test_mask, data_2.test_mask], dim=0)
+    data = Data(edge_index=edge_index, x=new_x, y=new_y, train_mask=new_train_mask, test_mask=new_test_mask, val_mask=new_val_mask)
+    print(data)
+    """
+    # print(data.edge_index)
+    # exit()
     # if iteration == 0:
-    #     # my partition
-    #     degree_split = [3, 5] # for num_class = 3
-    #     data.to(torch.device("cpu"))
-    #     data, n_subgraphs, class_graphs = my_partition_graph(data, degree_split, args.total_subgraphs, args.num_groups, dataset=args.dataset)
-    #     n_subgraphs, n_classes, n_groups = my_get_boundary(n_subgraphs, class_graphs, args.num_groups)
-    #     print(data)
-    #     # print(data.train_mask, data.test_mask)
-    #     print(class_graphs)
-    #     print('n_subgraphs: ', n_subgraphs)
-    #     print('n_classes: ', n_classes)
-    #     print('n_groups: ', n_groups)
+    # # my partition
+    # degree_split = [3, 5] # for num_class = 3
+    # data.to(torch.device("cpu"))
+    # data, n_subgraphs, class_graphs = my_partition_graph(data, degree_split, args.total_subgraphs, args.num_groups, dataset=args.dataset)
+    # n_subgraphs, n_classes, n_groups = my_get_boundary(n_subgraphs, class_graphs, args.num_groups)
+    # print(data)
+    # # print(data.train_mask, data.test_mask)
+    # print(class_graphs)
+    # print('n_subgraphs: ', n_subgraphs)
+    # print('n_classes: ', n_classes)
+    # print('n_groups: ', n_groups)
 
     group_nnz_aft = count_group_nnz(model.adj1, adj_size, group=args.num_groups)
     print('group_nnz before pruning: \n', group_nnz_bef)
@@ -462,15 +517,43 @@ for iteration in range(args.iteration):
 
     subgraph_nnz = count_subgraph_nnz(data.edge_index, n_subgraphs)
     print('subgraph_nnz after re-partition: \n', subgraph_nnz)
+    print(np.sum(subgraph_nnz, axis=0))
     print('number of nodes within each subgraph: ', n_subgraphs)
     print('number of edges within each subgraph: ', subgraph_nnz.diagonal())
 
     print("original number of non-zeros: ", ori_nnz)
     print("finish L1 training, num of edges * 2 + diag in adj1:", np.count_nonzero(cur_adj1))
 
-    #     state_dict = model.state_dict()
-    #     model, data = Net(dataset, data, args).to(device), data.to(device)
-    #     model.load_state_dict(state_dict)
+    state_dict = model.state_dict()
+    model, data = Net(dataset, data, args).to(device), data.to(device)
+    model.load_state_dict(state_dict)
+
+    ## --------------------------------------
+    ## Retraining
+    ## --------------------------------------
+
+    # print('***'*20)
+    # print('retraining at iteration {}'.format(iteration))
+    # print('***'*20)
+
+    # state_dict = model.state_dict()
+
+    # model = Net(dataset, data, args, adj=model.adj1).to(device)
+    # model.load_state_dict(state_dict)
+    train_acc, val_acc, tmp_test_acc = test(model, data.to(device))
+    print('Loaded pruned model with accuracy: Train: {:.4f}, Val: {:.4f}, Test: {:.4f}'.format(train_acc, val_acc, tmp_test_acc))
+
+    for retrain_epoch in range(100):
+        retrain(model, data)
+        train_acc, val_acc, tmp_test_acc = test(model, data)
+        test_acc = 0
+        if tmp_test_acc > test_acc:
+            test_acc = tmp_test_acc
+        log = 'Retrain Epoch: {:03d}, Train: {:.4f}, Val: {:.4f}, Test: {:.4f}'
+        print(log.format(retrain_epoch, train_acc, val_acc, test_acc))
+
+        if retrain_epoch == 99:
+            print('best retraining accuracy: ', test_acc)
 
 
 

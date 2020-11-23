@@ -204,7 +204,12 @@ if __name__ == "__main__":
     # print(deg, len(deg))
 
     # divide degree among different classes
-    degree_split = [3, 5] # for num_class = 3
+    if args.dataset == 'CiteSeer':
+        degree_split = [3, 5] # for num_class = 3
+    elif args.dataset == 'Cora':
+        degree_split = [4]
+    elif args.dataset == 'Pubmed':
+        degree_split = [7, 12]
     data, n_subgraphs, class_graphs = my_partition_graph(data, degree_split, args.total_subgraphs, args.num_groups, dataset=args.dataset)
     n_subgraphs, n_classes, n_groups = my_get_boundary(n_subgraphs, class_graphs, args.num_groups)
     print(data)

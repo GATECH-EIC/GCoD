@@ -9,7 +9,7 @@ from torch_geometric.data import Data
 from torch_sparse import SparseTensor
 from scipy import sparse, io
 
-def my_partition_graph(data, degree_split, tot_subgraphs, tot_groups, dataset='CiteSeer'):
+def my_partition_graph(data, degree_split, tot_subgraphs, tot_groups, dataset='CiteSeer', remove_self_loop=True):
 
     assert(tot_subgraphs % tot_groups == 0, 'tot_subgraph should be devided by tot_groups')
     tot_subgraphs //= tot_groups
@@ -23,8 +23,14 @@ def my_partition_graph(data, degree_split, tot_subgraphs, tot_groups, dataset='C
     y = data.y
 
     g = dgl.graph((u, v))
-    g = dgl.remove_self_loop(g)
+    if remove_self_loop is True:
+        g = dgl.remove_self_loop(g)
     # g = dgl.add_self_loop(g)
+
+    n_node = g.num_nodes()
+    n_edge = g.num_edges()
+    avg_edge = n_edge / tot_subgraphs
+    print(n_node, n_edge)
 
     g.ndata['train_mask'] = train_mask
     g.ndata['test_mask'] = test_mask
@@ -32,11 +38,6 @@ def my_partition_graph(data, degree_split, tot_subgraphs, tot_groups, dataset='C
     g.ndata['x'] = x
     g.ndata['y'] = y
     g.ndata['in_deg'] = g.in_degrees()
-
-    n_node = g.num_nodes()
-    n_edge = g.num_edges()
-    avg_edge = n_edge / tot_subgraphs
-    print(n_node, n_edge)
 
     n_filter = len(degree_split) + 1
     degree_split.insert(0, 0)
@@ -56,6 +57,7 @@ def my_partition_graph(data, degree_split, tot_subgraphs, tot_groups, dataset='C
 
     print(len(new_nodes))
     # g = g.subgraph(new_nodes)
+    # print(g.num_edges())
 
     n_subgraph = [0] * n_filter
     reminder = [0] * n_filter
@@ -70,6 +72,7 @@ def my_partition_graph(data, degree_split, tot_subgraphs, tot_groups, dataset='C
     for i in range(0, tot_subgraphs - tot):
         n_subgraph[idx[i % n_filter]] += 1
 
+    # print(g.num_edges())
     # new_nodes = [[] for _ in range(tot_groups)]
     # new_train_mask = [[] for _ in range(tot_groups)]
     # new_test_mask = [[] for _ in range(tot_groups)]
@@ -123,7 +126,12 @@ def my_partition_graph(data, degree_split, tot_subgraphs, tot_groups, dataset='C
     new_nodes = [[] for _ in range(tot_groups)]
     new_graph_size = [[] for _ in range(tot_groups)]
 
+    # print(g.num_edges())
     for i in range(n_filter):
+        if n_subgraph[i] * tot_groups == 1:
+            new_graph_size[0].append(clusters[i].num_nodes())
+            new_nodes[0].extend(clusters[i].ndata[dgl.NID])
+            continue
         partition_graph(clusters[i], 'metis', n_subgraph[i] * tot_groups, dataset,
                         reshuffle=True, balance_edges=True)
         print(f'class {i} has {clusters[i].num_nodes()} nodes')
@@ -133,15 +141,24 @@ def my_partition_graph(data, degree_split, tot_subgraphs, tot_groups, dataset='C
             new_graph_size[j % tot_groups].append(nodes.shape[0])
             new_nodes[j % tot_groups].extend(clusters[i].ndata[dgl.NID][subg.ndata['orig_id'][nodes]])
 
+        # print(i, torch.stack(new_nodes[0]).shape)
+        # print(i, torch.unique(torch.stack(new_nodes[0])).shape)
+    # print(g.num_edges())
     nodes = []
     graph_size = []
     for i in range(tot_groups):
         nodes += new_nodes[i]
         graph_size += new_graph_size[i]
 
+    # print(g.num_edges())
+
     nodes = torch.stack(nodes)
+    print(torch.unique(nodes).shape)
+    # print(g.num_edges())
+    print(nodes.shape)
 
     g = g.subgraph(nodes)
+    # print(g.num_edges())
     u, v = g.edges()
     edge_index = torch.stack([u, v])
     data = Data(x=g.ndata['x'], y=g.ndata['y'], train_mask=g.ndata['train_mask'], test_mask=g.ndata['test_mask'],
