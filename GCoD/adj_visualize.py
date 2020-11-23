@@ -85,31 +85,104 @@ from scipy import io
 if not osp.exists('./adj_visual'):
     os.mkdir('./adj_visual')
 
+### CiteSeer
+
+# G = nx.Graph()
+# comments = '%%MatrixMarket matrix coordinate real symmetric'
+# edges = nx.read_edgelist('./pretrain/CiteSeer_adj.mtx', comments=comments, nodetype=int, data=(('weight', float),))
+# G.add_edges_from(edges.edges())
+# num_nodes = len(list(G.nodes))
+# print(num_nodes)
+# nodes_list = np.array(list(G.nodes))
+# draw_adjacency_matrix(G, nodes_list, save_path='./adj_visual/', save_name='CiteSeer_metis')
+
+# G = nx.Graph()
+# edges = nx.read_edgelist('./pretrain/CiteSeer_oriadj.mtx', comments=comments, nodetype=int, data=(('weight', float),))
+# G.add_edges_from(edges.edges())
+# num_nodes = len(list(G.nodes))
+# print(num_nodes)
+# nodes_list = np.array(list(G.nodes))
+# draw_adjacency_matrix(G, nodes_list, save_path='./adj_visual/', save_name='CiteSeer_origin')
+
+# G = nx.Graph()
+# edges = nx.read_edgelist('./pretrain/CiteSeer_newadj.mtx', comments=comments, nodetype=int, data=(('weight', float),))
+# G.add_edges_from(edges.edges())
+# num_nodes = len(list(G.nodes))
+# print(num_nodes)
+# nodes_list = np.array(list(G.nodes))
+# draw_adjacency_matrix(G, nodes_list, save_path='./adj_visual/', save_name='CiteSeer_newadj')
+
+### Caltech36
 G = nx.Graph()
-# edges = nx.read_edgelist("./adj_visual/socfb-Caltech36.mtx")
 comments = '%%MatrixMarket matrix coordinate real symmetric'
-edges = nx.read_edgelist('./pretrain/CiteSeer_adj.mtx', comments=comments, nodetype=int, data=(('weight', float),))
+edges = nx.read_edgelist('./pretrain/Caltech36_adj.mtx', comments=comments, nodetype=int, data=(('weight', float),))
 G.add_edges_from(edges.edges())
 num_nodes = len(list(G.nodes))
 print(num_nodes)
 nodes_list = np.array(list(G.nodes))
-draw_adjacency_matrix(G, nodes_list, save_path='./adj_visual/', save_name='CiteSeer_metis')
+draw_adjacency_matrix(G, nodes_list, save_path='./adj_visual/', save_name='Caltech36_metis')
 
 G = nx.Graph()
-edges = nx.read_edgelist('./pretrain/CiteSeer_oriadj.mtx', comments=comments, nodetype=int, data=(('weight', float),))
+edges = nx.read_edgelist('./pretrain/Caltech36_oriadj.mtx', comments=comments, nodetype=int, data=(('weight', float),))
 G.add_edges_from(edges.edges())
 num_nodes = len(list(G.nodes))
 print(num_nodes)
 nodes_list = np.array(list(G.nodes))
-draw_adjacency_matrix(G, nodes_list, save_path='./adj_visual/', save_name='CiteSeer_origin')
+draw_adjacency_matrix(G, nodes_list, save_path='./adj_visual/', save_name='Caltech36_origin')
 
 G = nx.Graph()
-edges = nx.read_edgelist('./pretrain/CiteSeer_newadj.mtx', comments=comments, nodetype=int, data=(('weight', float),))
+edges = nx.read_edgelist('./pretrain/Caltech36_newadj.mtx', comments=comments, nodetype=int, data=(('weight', float),))
 G.add_edges_from(edges.edges())
 num_nodes = len(list(G.nodes))
 print(num_nodes)
 nodes_list = np.array(list(G.nodes))
-draw_adjacency_matrix(G, nodes_list, save_path='./adj_visual/', save_name='CiteSeer_newadj')
+draw_adjacency_matrix(G, nodes_list, save_path='./adj_visual/', save_name='Caltech36_newadj')
+
+
+### Cora
+# G = nx.Graph()
+# comments = '%%MatrixMarket matrix coordinate real symmetric'
+# edges = nx.read_edgelist('./pretrain/Cora_adj.mtx', comments=comments, nodetype=int, data=(('weight', float),))
+# G.add_edges_from(edges.edges())
+# num_nodes = len(list(G.nodes))
+# print(num_nodes)
+# nodes_list = np.array(list(G.nodes))
+# draw_adjacency_matrix(G, nodes_list, save_path='./adj_visual/', save_name='Cora_metis')
+
+# G = nx.Graph()
+# edges = nx.read_edgelist('./pretrain/Cora_oriadj.mtx', comments=comments, nodetype=int, data=(('weight', float),))
+# G.add_edges_from(edges.edges())
+# num_nodes = len(list(G.nodes))
+# print(num_nodes)
+# nodes_list = np.array(list(G.nodes))
+# draw_adjacency_matrix(G, nodes_list, save_path='./adj_visual/', save_name='Cora_origin')
+
+# G = nx.Graph()
+# edges = nx.read_edgelist('./pretrain/Cora_newadj.mtx', comments=comments, nodetype=int, data=(('weight', float),))
+# G.add_edges_from(edges.edges())
+# num_nodes = len(list(G.nodes))
+# print(num_nodes)
+# nodes_list = np.array(list(G.nodes))
+# draw_adjacency_matrix(G, nodes_list, save_path='./adj_visual/', save_name='Cora_newadj')
+
+### test partition
+# G = nx.Graph()
+# comments = '%%MatrixMarket matrix coordinate real symmetric'
+# edges = nx.read_edgelist('./partition/before.mtx', comments=comments, nodetype=int, data=(('weight', float),))
+# G.add_edges_from(edges.edges())
+# num_nodes = len(list(G.nodes))
+# print(num_nodes)
+# nodes_list = np.array(list(G.nodes))
+# draw_adjacency_matrix(G, nodes_list, save_path='./adj_visual/test/', save_name='before')
+
+# G = nx.Graph()
+# edges = nx.read_edgelist('./partition/after.mtx', comments=comments, nodetype=int, data=(('weight', float),))
+# G.add_edges_from(edges.edges())
+# num_nodes = len(list(G.nodes))
+# print(num_nodes)
+# nodes_list = np.array(list(G.nodes))
+# draw_adjacency_matrix(G, nodes_list, save_path='./adj_visual/test/', save_name='after')
+
 
 exit()
 
@@ -161,9 +234,11 @@ def divide_communities(G, nodes_partitions, alg='greedy_modularity'):
   elif alg == 'louvain':
     import community
     louvain_community_dict = community.best_partition(G)
+    print(louvain_community_dict)
 
-    for node_index, comm_id in louvain_community_dict.iteritems():
+    for node_index, comm_id in louvain_community_dict.items():
       nodes_partitions[comm_id].append(node_index)
+
 
   nodes_partitions = nodes_partitions.values()
   return nodes_partitions
@@ -174,10 +249,11 @@ def divide_communities(G, nodes_partitions, alg='greedy_modularity'):
 from collections import defaultdict
 nodes_partitions = defaultdict(list)
 
-nodes_partitions = divide_communities(G, nodes_partitions, alg='louvain')
+nodes_partitions = divide_communities(G, nodes_partitions, alg='greedy_modularity')
 
 nodes_dorm_ordered = [node for dorm in nodes_partitions for node in dorm]
-draw_adjacency_matrix(G, nodes_dorm_ordered, [nodes_partitions], ["blue"], save_path='./adj_visual/Caltech/', save_name='louvain'+'_order')
+print(len(partition))
+draw_adjacency_matrix(G, nodes_dorm_ordered, [nodes_partitions], ["blue"], save_path='./adj_visual/Caltech/', save_name='greedy_modularity'+'_order')
 
 
 ##################

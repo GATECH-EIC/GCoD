@@ -13,7 +13,7 @@ import numpy as np
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--epochs', type=int, default=100)
-parser.add_argument('--load_path', type=str, default="./graph_train/CiteSeer_prune_40.pth.tar")
+parser.add_argument('--load_path', type=str, default="./graph_train/Cora_prune_20.pth.tar")
 parser.add_argument("--use_state", type=bool,default=True)
 # parser.add_argument("--save", type=str, default="model.pth.tar")
 parser.add_argument('--save_dir', type=str, default='./retrain')
@@ -47,7 +47,7 @@ if args.use_state:
     model.load_state_dict(state_dict)
 
 train_acc, val_acc, tmp_test_acc = test(model, data)
-log = 'Loaded pruned model with accuracy: Train: {:.4f}, Val: {:.4f}, Test: {:.4f}'
+print('Loaded pruned model with accuracy: Train: {:.4f}, Val: {:.4f}, Test: {:.4f}'.format(train_acc, val_acc, tmp_test_acc))
 # print(log.format(train_acc, val_acc, tmp_test_acc))
 
 # create save dir
@@ -72,15 +72,15 @@ def retrain(model, data): # keep nonzeros in weights
     optimizer.zero_grad()
     F.nll_loss(model()[data.train_mask], data.y[data.train_mask]).backward()
 
-    zero_num = get_conv_zero_param(model)
+    # zero_num = get_conv_zero_param(model)
     # print(f"Number of zero parameters: {zero_num}")
     # ------ don't update those pruned grads! -
-    for k, m in enumerate(model.modules()):
-        # print(k, m)
-        if isinstance(m, GCNConv):
-            weight_copy = m.weight.data.abs().clone()
-            mask = weight_copy.gt(0).float().to(device)
-            m.weight.grad.data.mul_(mask)
+    # for k, m in enumerate(model.modules()):
+    #     # print(k, m)
+    #     if isinstance(m, GCNConv):
+    #         weight_copy = m.weight.data.abs().clone()
+    #         mask = weight_copy.gt(0).float().to(device)
+    #         m.weight.grad.data.mul_(mask)
     # -----------------------------------------
 
     optimizer.step()
@@ -89,14 +89,14 @@ for epoch in range(1, args.epochs):
     retrain(model, data)
     train_acc, val_acc, tmp_test_acc = test(model, data)
     best_val_acc = test_acc = 0
-    if val_acc > best_val_acc:
+    if tmp_test_acc > test_acc:
         best_val_acc = val_acc
         test_acc = tmp_test_acc
     log = 'Retrain Epoch: {:03d}, Train: {:.4f}, Val: {:.4f}, Test: {:.4f}'
-    # print(log.format(epoch, train_acc, best_val_acc, test_acc))
+    print(log.format(epoch, train_acc, best_val_acc, test_acc))
     if(epoch==args.epochs-1):
         log_4_test = args.log
-        print(log_4_test.format(best_val_acc))
+        print(log_4_test.format(tmp_test_acc))
 # print(model.state_dict().keys())
 torch.save(model.state_dict(), "{}/{}_retrain.pth.tar".format(args.save_dir, args.dataset))
 

@@ -10,7 +10,7 @@ import torch_geometric.transforms as T
 from torch_geometric.nn import GCNConv, DataParallel
 from utils import *
 import numpy as np
-from torch_geometric.utils import dense_to_sparse
+from torch_geometric.utils import dense_to_sparse, degree
 from torch_sparse import SparseTensor
 # metis
 from torch_geometric.data import Data, ClusterData, ClusterLoader
@@ -23,9 +23,12 @@ except RuntimeError:
 import pytest
 
 from scipy import sparse, io
+from Facebook100_dataset import Facebook100
+from get_partition import my_partition_graph
+from get_boundary import my_get_boundary
 
 # device = torch.device("cpu")
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
 def to_scipy(index, value, m, n):
     assert not index.is_cuda and not value.is_cuda
@@ -80,31 +83,36 @@ class Net(torch.nn.Module):
             hidden = 128
         else:
             hidden = 16
+
+        num_classes = dataset.num_classes
+        if args.dataset in ['Caltech36']:
+            num_classes += 1
         self.conv1 = GCNConv(dataset.num_features, hidden,
                              normalize=not args.use_gdc)
-        self.conv2 = GCNConv(hidden, dataset.num_classes,
+        self.conv2 = GCNConv(hidden, num_classes,
                              normalize=not args.use_gdc)
         # zhihan write before
-        # if data.edge_attr == None:
-        #     data.edge_attr = torch.ones(data.edge_index[0].size(0))
-        # if len(adj) == 0:
-        #     self.adj1 = SparseTensor(row=data.edge_index[0], col=data.edge_index[1], value=torch.clone(data.edge_attr)).to_torch_sparse_coo_tensor().to(device)
-        #     self.adj1 = self.adj1 + torch.eye(self.adj1.shape[0]).to_sparse().to(device)
-        #     # self.adj1 = (torch.clone(data.edge_index).to(device), torch.clone(data.edge_attr).to(device))
-        # else:
-        #     self.adj1 = adj
-        # self.id = torch.eye(self.adj1.shape[0]).to_sparse().to(device)
-        # self.adj2 = self.adj1.clone()
-
-        # haoran write
+        if data.edge_attr == None:
+            print('add self loop!')
+            data.edge_attr = torch.ones(data.edge_index[0].size(0))
         if len(adj) == 0:
-            self.adj1 = self.data.adj.to_torch_sparse_coo_tensor().to(device)
+            self.adj1 = SparseTensor(row=data.edge_index[0], col=data.edge_index[1], value=torch.clone(data.edge_attr)).to_torch_sparse_coo_tensor().to(device)
             self.adj1 = self.adj1 + torch.eye(self.adj1.shape[0]).to_sparse().to(device)
+            # self.adj1 = (torch.clone(data.edge_index).to(device), torch.clone(data.edge_attr).to(device))
         else:
             self.adj1 = adj
-
         self.id = torch.eye(self.adj1.shape[0]).to_sparse().to(device)
         self.adj2 = self.adj1.clone()
+
+        # haoran write w.r.t. PyG METIS
+        # if len(adj) == 0:
+        #     self.adj1 = self.data.adj.to_torch_sparse_coo_tensor().to(device)
+        #     self.adj1 = self.adj1 + torch.eye(self.adj1.shape[0]).to_sparse().to(device)
+        # else:
+        #     self.adj1 = adj
+
+        # self.id = torch.eye(self.adj1.shape[0]).to_sparse().to(device)
+        # self.adj2 = self.adj1.clone()
 
 
     def forward(self):
@@ -136,13 +144,28 @@ def test(model, data):
     return accs
 
 
-
+def set_random_mask(data):
+    num_nodes = len(data.y)
+    perm = torch.randperm(num_nodes)
+    train_size = int(num_nodes * 0.7)
+    val_size = int(num_nodes * 0.8)
+    train_mask = torch.zeros(num_nodes, dtype=torch.bool, device=device)
+    train_mask[perm[:train_size]] = 1
+    val_mask = torch.zeros(num_nodes, dtype=torch.bool, device=device)
+    val_mask[perm[train_size:val_size]] = 1
+    test_mask = torch.zeros(num_nodes, dtype=torch.bool, device=device)
+    test_mask[perm[val_size:]] = 1
+    new_data = Data(x=data.x, edge_index=data.edge_index, train_mask=train_mask, val_mask=val_mask, test_mask=test_mask, y=data.y)
+    return new_data
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=200)
     parser.add_argument('--use_gdc', type=bool, default=False)
     parser.add_argument("--dataset", type=str, default="CiteSeer") # choice: F: Flicker, C: DBLP, CiteSeer, Cora, Pumbed
+    parser.add_argument('--num_groups', type=int, default=2)
+    parser.add_argument('--num_classes', type=int, default=3)
+    parser.add_argument('--total_subgraphs', type=int, default=10)
     args = parser.parse_args()
 
     # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -157,10 +180,18 @@ if __name__ == "__main__":
     elif dataset == "C": # has problem: miss masks
         dataset = CitationFull(path, "DBLP", transform=T.NormalizeFeatures())
         print(len(dataset))
+    elif args.dataset in ['Caltech36']:
+        dataset = Facebook100(path, dataset, 'housing', transform=T.NormalizeFeatures())
     else: # normal
         dataset = Planetoid(path, dataset, transform=T.NormalizeFeatures())
     print(len(dataset))
+    # print(dataset.num_classes)
     data = dataset[0]
+    if args.dataset in ['Caltech36']:
+        data = set_random_mask(data)
+        data.y = data.y + 1
+    print(data)
+    # print(data.y)
 
     edge_attr = torch.ones(data.edge_index[0].size(0))
     eye = torch.eye(data.x.size(0)).to_sparse().to(device)
@@ -168,10 +199,27 @@ if __name__ == "__main__":
     scipy_oriadj = SparseTensor.from_torch_sparse_coo_tensor(oriadj + eye).to_scipy()
     io.mmwrite(f"./pretrain/{args.dataset}_oriadj.mtx", scipy_oriadj)
 
+    ### My Partition
+    # deg = degree(data.edge_index[0], dtype=torch.float)
+    # print(deg, len(deg))
+
+    # divide degree among different classes
+    degree_split = [3, 5] # for num_class = 3
+    data, n_subgraphs, class_graphs = my_partition_graph(data, degree_split, args.total_subgraphs, args.num_groups, dataset=args.dataset)
+    n_subgraphs, n_classes, n_groups = my_get_boundary(n_subgraphs, class_graphs, args.num_groups)
+    print(data)
+    # print(data.train_mask, data.test_mask)
+    print(class_graphs)
+    print('n_subgraphs: ', n_subgraphs)
+    print('n_classes: ', n_classes)
+    print('n_groups: ', n_groups)
+    # exit()
     ###
-    print(data)
-    data = cluster_graph(data, num_parts=3)
-    print(data)
+
+    ### PyG METIS
+    # print(data)
+    # data = cluster_graph(data, num_parts=args.group)
+    # print(data)
     # exit()
     ###
 
@@ -194,4 +242,4 @@ if __name__ == "__main__":
     # print('pretrain Epochs: ',args.epochs)
     if not osp.exists('./pretrain'):
         os.mkdir('./pretrain')
-    torch.save({"state_dict":model.state_dict(),"adj":model.adj1}, f"./pretrain/{args.dataset}_model.pth.tar")
+    torch.save({"state_dict":model.state_dict(),"adj":model.adj1, "data":data}, f"./pretrain/{args.dataset}_model.pth.tar")
