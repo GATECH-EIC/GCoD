@@ -1,0 +1,54 @@
+{
+    "edge_map": [
+        3181,
+        6506,
+        9838,
+        13010,
+        16315,
+        19484
+    ],
+    "graph_name": "metis",
+    "halo_hops": 1,
+    "node_map": [
+        279,
+        530,
+        755,
+        1339,
+        1783,
+        2099
+    ],
+    "num_edges": 19484,
+    "num_nodes": 2099,
+    "num_parts": 6,
+    "part-0": {
+        "edge_feats": "/home/hy34/GCoD/GCoD/Pubmed/part0/edge_feat.dgl",
+        "node_feats": "/home/hy34/GCoD/GCoD/Pubmed/part0/node_feat.dgl",
+        "part_graph": "/home/hy34/GCoD/GCoD/Pubmed/part0/graph.dgl"
+    },
+    "part-1": {
+        "edge_feats": "/home/hy34/GCoD/GCoD/Pubmed/part1/edge_feat.dgl",
+        "node_feats": "/home/hy34/GCoD/GCoD/Pubmed/part1/node_feat.dgl",
+        "part_graph": "/home/hy34/GCoD/GCoD/Pubmed/part1/graph.dgl"
+    },
+    "part-2": {
+        "edge_feats": "/home/hy34/GCoD/GCoD/Pubmed/part2/edge_feat.dgl",
+        "node_feats": "/home/hy34/GCoD/GCoD/Pubmed/part2/node_feat.dgl",
+        "part_graph": "/home/hy34/GCoD/GCoD/Pubmed/part2/graph.dgl"
+    },
+    "part-3": {
+        "edge_feats": "/home/hy34/GCoD/GCoD/Pubmed/part3/edge_feat.dgl",
+        "node_feats": "/home/hy34/GCoD/GCoD/Pubmed/part3/node_feat.dgl",
+        "part_graph": "/home/hy34/GCoD/GCoD/Pubmed/part3/graph.dgl"
+    },
+    "part-4": {
+        "edge_feats": "/home/hy34/GCoD/GCoD/Pubmed/part4/edge_feat.dgl",
+        "node_feats": "/home/hy34/GCoD/GCoD/Pubmed/part4/node_feat.dgl",
+        "part_graph": "/home/hy34/GCoD/GCoD/Pubmed/part4/graph.dgl"
+    },
+    "part-5": {
+        "edge_feats": "/home/hy34/GCoD/GCoD/Pubmed/part5/edge_feat.dgl",
+        "node_feats": "/home/hy34/GCoD/GCoD/Pubmed/part5/node_feat.dgl",
+        "part_graph": "/home/hy34/GCoD/GCoD/Pubmed/part5/graph.dgl"
+    },
+    "part_method": "metis"
+}

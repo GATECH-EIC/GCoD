@@ -19,12 +19,12 @@ import logging
 parser = argparse.ArgumentParser() # EB
 parser.add_argument('--times', type=int, default=4)
 parser.add_argument('--epochs', type=int, default=25)
-parser.add_argument('--ratio_graph', type=int, default=90)
+parser.add_argument('--ratio_graph', type=int, default=20)
 parser.add_argument('--use_gdc', type=bool, default=False)
-parser.add_argument('--save_file', type=str, default="model.pth.tar")
 parser.add_argument('--lookback', type=int, default=3)
 parser.add_argument("--thres", type=float, default=0.1)
 parser.add_argument("--dataset", type=str, default="CiteSeer")
+parser.add_argument('--save_dir', type=str, default='./graph_train_eb')
 parser.add_argument("--log", type=str, default="{:00d}: {:00d}")
 args = parser.parse_args()
 
@@ -35,13 +35,13 @@ dataset = Planetoid(path, dataset, transform=T.NormalizeFeatures())
 # print(f"Number of graphs in {dataset} dataset:", len(dataset))
 data = dataset[0]
 model, data = Net(dataset, data, args).to(device), data.to(device)
-checkpoint = torch.load(f"./pretrain_pytorch/{args.dataset}_model.pth.tar")
+checkpoint = torch.load(f"./pretrain/{args.dataset}_model.pth.tar")
 model.load_state_dict(checkpoint)
 
 loss = lambda m: F.nll_loss(m()[data.train_mask], data.y[data.train_mask])
 # print("construct admm training")
-support1 = model.adj1 # sparse 
-support2 = model.adj2 # sparse 
+support1 = model.adj1 # sparse
+support2 = model.adj2 # sparse
 s1_values = support1.coalesce().values()
 s2_values = support2.coalesce().values()
 partial_adj_mask = support1.clone()
@@ -52,6 +52,13 @@ Z1 = U1 = Z2 = U2 = partial_adj_mask.clone()
 model.adj1.requires_grad = True
 model.adj2.requires_grad = True
 adj_mask = partial_adj_mask.clone()
+
+# create save dir
+if not osp.exists(args.save_dir):
+    os.mkdir(args.save_dir)
+
+if not osp.exists('./masks'):
+    os.mkdir('./masks')
 
 # Update the gradient of the adjacency matrices
 # grads_vars: {name: torch.Tensor}
@@ -162,7 +169,9 @@ def post_processing():
     # cur_adj1 = model.adj1.cpu().numpy()
     # cur_adj2 = model.adj2.cpu().numpy()
 
-    torch.save({"state_dict":model.state_dict(),"adj":model.adj1}, f"./graph_pruned_eb_pytorch/{args.save_file}")
+    print('save back!')
+
+    torch.save({"state_dict":model.state_dict(),"adj":model.adj1}, "{}/{}_prune_{}.pth.tar".format(args.save_dir, args.dataset, str(args.ratio_graph)))
 
 id1 = model.id
 id2 = model.id
@@ -172,7 +181,7 @@ id2 = model.id
 d1 = support1 + U1 - (Z1 + id1)
 d2 = support2 + U2 - (Z2 + id2)
 admm_loss = lambda m: loss(m) + \
-            rho * (torch.sum(d1.coalesce().values() * d1.coalesce().values()) + 
+            rho * (torch.sum(d1.coalesce().values() * d1.coalesce().values()) +
             torch.sum(d2.coalesce().values()*d2.coalesce().values()))
 
 adj_optimizer = torch.optim.SGD(adj_variables,lr=0.001)
@@ -193,8 +202,8 @@ for j in range(args.times):
         update_gradients_adj(adj_map, adj_mask)
         # Use the optimizer to update adjacency matrix
         # print("Support 1 grad:", support1.grad, support1.grad.shape)
-        adj_optimizer.step()  
-        # print(adj_variables[0][adj_variables[0] != 1])      
+        adj_optimizer.step()
+        # print(adj_variables[0][adj_variables[0] != 1])
         # print("Support values:", support1.coalesce().values()[support1.coalesce().values() < 0.9999])
 
         train_acc, val_acc, tmp_test_acc = test(model, data)
@@ -202,25 +211,25 @@ for j in range(args.times):
             best_prune_acc = val_acc
             test_acc = tmp_test_acc
         log = "Pruning Epoch: {:03d}, Train: {:.4f}, Val: {:.4f}, Test: {:.4f}".format(j*args.epochs+epoch, train_acc, val_acc, tmp_test_acc)
-        cur_mask = get_mask(model.adj1 - id1, non_zero_idx, args.ratio_graph)   
+        cur_mask = get_mask(model.adj1 - id1, non_zero_idx, args.ratio_graph)
         torch.save(cur_mask, f"./masks/{args.dataset}_{args.ratio_graph}_{counter}_mask")
-        cur_mask = cur_mask.to_dense().int().cpu() 
+        cur_mask = cur_mask.to_dense().int().cpu()
         if len(lookbacks) < args.lookback:
             lookbacks.append(cur_mask)
         else:
-            can_return = True            
+            can_return = True
             total = 0
             for mask in lookbacks:
-                
-                dist = calc_dist(mask, cur_mask)  
+
+                dist = calc_dist(mask, cur_mask)
                 if first_d == -1:
                     first_d = dist
                 dist /= first_d
                 total = max(dist,total)
-                
+
                 if total > args.thres:
                     can_return = False
-                    break            
+                    break
             # print(counter, total)
             if can_return:
                 logging.info(args.log.format(args.ratio_graph, j * args.epochs + epoch))
@@ -258,7 +267,7 @@ cur_adj1 = model.adj1.cpu().to_dense().numpy()
 cur_adj2 = model.adj2.cpu().to_dense().numpy()
 print(np.count_nonzero(cur_adj1))
 
-# torch.save({"state_dict":model.state_dict(),"adj":cur_adj1}, f"./graph_pruned_pytorch/{args.save_file}")
+torch.save({"state_dict":model.state_dict(),"adj":cur_adj1}, "{}/{}_prune_{}.pth.tar".format(args.save_dir, args.dataset, str(args.ratio_graph)))
 
 
 
