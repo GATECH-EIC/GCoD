@@ -1,0 +1,1 @@
+from .network import GCN, GAT, GIN, SAGE
