@@ -142,7 +142,7 @@ def my_partition_graph(degree_split, tot_subgraphs, tot_groups, dataset='CiteSee
                         reshuffle=True, balance_edges=True)
         print(f'class {i} has {clusters[i].num_nodes()} nodes')
         for j in range(n_subgraph[i] * tot_groups):
-            subg, node_feat, _, _, _ = dgl.distributed.load_partition(dataset + '/metis.json', j)
+            subg, node_feat, _, _, _ = dgl.distributed.load_partition(dataset + '/metis.json', j)[:5]
             nodes = subg.filter_nodes(lambda x: x.data['inner_node'])
             new_graph_size[j % tot_groups].append(nodes.shape[0])
             new_nodes[j % tot_groups].extend(clusters[i].ndata[dgl.NID][subg.ndata['orig_id'][nodes]])
