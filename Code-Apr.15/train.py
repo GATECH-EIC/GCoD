@@ -171,7 +171,7 @@ def main_train(dataset, data, device):
             optimizer = torch.optim.Adam(model.parameters(), lr=5e-3, weight_decay=5e-4)
 
         if args.model == 'GIN': # 32
-            model = GIN(dataset, data, num_layers=2, hidden=32, device=device,
+            model = GIN(dataset, data, num_layers=2, hidden=128, device=device,
                         quant=args.quant, num_act_bits=args.num_act_bits, num_wei_bits=args.num_wei_bits, num_agg_bits=args.num_agg_bits, num_att_bits=args.num_att_bits,
                         chunk_q=args.enable_chunk_q, n_classes=n_classes, n_subgraphs=n_subgraphs, chunk_q_mix=args.enable_chunk_q_mix, q_max=args.q_max, q_min=args.q_min).to(device)
             model.reset_parameters()
