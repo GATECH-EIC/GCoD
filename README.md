@@ -1,6 +1,6 @@
 # GCoD: Graph Convolutional Network Acceleration via Dedicated Algorithm and Accelerator Co-Design
 
-**Haoran You**, Tong Geng, Yongan Zhang, Ang Li, Yingyan Lin (Credit to Cheng Wan's help on graph paritioning)
+**Haoran You**, Tong Geng, Yongan Zhang, Ang Li, Yingyan Lin (Also credit to Cheng Wan's help and discussion on graph paritioning)
 
 Accepted by [HPCA 2022](https://hpca-conf.org/2022/)
 
