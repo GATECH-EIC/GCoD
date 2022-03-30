@@ -1,5 +1,4 @@
 data/
-GCoD/graph_train_eb/
-GCoD/masks/
-GCoD/reddit/
-GCoD/CiteSeer/
+GCoD/
+adj_visualize.py
+adj_visualize/
