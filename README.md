@@ -1,13 +1,13 @@
 # GCoD: Graph Convolutional Network Acceleration via Dedicated Algorithm and Accelerator Co-Design
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-success.svg)](https://opensource.org/licenses/MIT)
-
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-green)](https://opensource.org/licenses/Apache-2.0)
 
 **Haoran You**, Tong Geng, Yongan Zhang, Ang Li, Yingyan Lin (Also credit to Cheng Wan's help and discussion on graph paritioning)
 
 Accepted by [HPCA 2022](https://hpca-conf.org/2022/) More Info:
 \[ [**Paper**](https://arxiv.org/pdf/2112.11594.pdf) | [**Slide**](https://github.com/ranery/GCoD/blob/main/HPCA-GCoD.pdf) | [**Youtube**](https://www.youtube.com/watch?v=Zx1sMyzwOtY) | [**Github**](https://github.com/ranery/GCoD) \]
+
+---
 
 ## Overview of the Co-Design Framework
 
