@@ -11,7 +11,14 @@ Accepted by [HPCA 2022](https://hpca-conf.org/2022/) More Info:
 
 ## Overview of the Co-Design Framework
 
-![overview](./figures/overview.png)
+We propose a **G**CN algorithm and accelerator **Co**-**D**esign framework dubbed GCoD.
+
+* On the algorithm level, GCoD integrates a split and conquer training strategy to polarize the graphs to be either denser or sparser in local neighborhoods without compromising the model accuracy, resulting in adjacency matrices that have two levels of workload and enjoys largely enhanced regularity and thus ease of acceleration.
+
+* On the hardware level, GCoD integrates a dedicated two-pronged accelerator to leverage GCoD algorithm's resulting graph adjacency matrices for further boosting the acceleration efficiency. Results of the two branches are then aggregated without conflicts.
+
+![overview](./figures/overview.png | width=200)
+<img src="./figures/overview.png" width="200">
 
 ## Usage of the Provided Minimalistic Codebase
 
@@ -83,6 +90,10 @@ More examples are provided in `./scripts/cmd_tune.sh`.
 ![adj](./figures/adj.png)
 
 Visualization scripts are provided in `./scripts/cmd_plot.sh`
+
+## Ideas in Hardware Architecture
+
+
 
 ## Speedups over Other Platforms
 
