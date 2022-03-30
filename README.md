@@ -86,13 +86,17 @@ More examples are provided in `./scripts/cmd_tune.sh`.
 
 > Visualization of the Resulting Adjacency Matrix
 
+<p align="center">
 <img src="./figures/adj.png" width="500">
+</p>
 
 Visualization scripts are provided in `./scripts/cmd_plot.sh`
 
 ## Ideas in Hardware Architecture
 
-<img src="./figures/arch.png" width="300">
+<p align="center">
+<img src="./figures/arch.png" width="400">
+</p>
 
 ## Speedups over Other Platforms
 
