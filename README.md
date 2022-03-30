@@ -92,7 +92,7 @@ Visualization scripts are provided in `./scripts/cmd_plot.sh`
 
 ## Ideas in Hardware Architecture
 
-<img src="./figures/arch.png" width="500">
+<img src="./figures/arch.png" width="300">
 
 ## Speedups over Other Platforms
 
