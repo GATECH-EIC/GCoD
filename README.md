@@ -17,7 +17,9 @@ We propose a **G**CN algorithm and accelerator **Co**-**D**esign framework dubbe
 
 * ***On the hardware level***, GCoD integrates a dedicated two-pronged accelerator to leverage GCoD algorithm's resulting graph adjacency matrices for further boosting the acceleration efficiency. Results of the two branches are then aggregated without conflicts.
 
-<img src="./figures/overview.png" width="1000">
+<p align="center">
+<img src="./figures/overview.png" width="800">
+</p>
 
 ## Usage of the Provided Minimalistic Codebase
 
