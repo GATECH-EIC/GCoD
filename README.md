@@ -94,6 +94,9 @@ Visualization scripts are provided in `./scripts/cmd_plot.sh`
 
 ## Ideas in Hardware Architecture
 
+Below figure illustrates the overall micro-architecture of the GCoD accelerator. For better processing elements (PEs) utilization and reduced off-chip memory access during the performance dominant aggregation phase, GCoD accelerator consists of two separate computing branches with each dedicated to process the denser workload and sparser workload
+of GCoD algorithm's resulting adjacency matrices, respectively.
+
 <p align="center">
 <img src="./figures/arch.png" width="400">
 </p>
