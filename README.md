@@ -73,10 +73,13 @@ python tune.py \
     --num_bits 16
 ````
 
+More examples are provided in `./scripts/cmd_tune.sh`.
+
 > Visualization of the Resulting Adjacency Matrix
 
 ![adj](./figures/adj.png)
 
+Visualization scripts are provided in `./scripts/cmd_plot.sh`
 
 ## Speedups over Other Platforms
 
