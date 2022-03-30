@@ -83,6 +83,8 @@ Visualization scripts are provided in `./scripts/cmd_plot.sh`
 
 ## Speedups over Other Platforms
 
+Extensive experiments and ablation studies validate that our GCoD consistently reduces the number of off-chip accesses, leading to speedups of 15286x, 294x, 7.8x, and 2.5x as compared to CPUs, GPUs, and prior-art GCN accelerators including HyGCN and AWB-GCN, respectively
+
 ![comp](./figures/comp.png)
 
 ## Citation
