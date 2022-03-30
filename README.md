@@ -13,9 +13,9 @@ Accepted by [HPCA 2022](https://hpca-conf.org/2022/) More Info:
 
 We propose a **G**CN algorithm and accelerator **Co**-**D**esign framework dubbed GCoD.
 
-* On the algorithm level, GCoD integrates a split and conquer training strategy to polarize the graphs to be either denser or sparser in local neighborhoods without compromising the model accuracy, resulting in adjacency matrices that have two levels of workload and enjoys largely enhanced regularity and thus ease of acceleration.
+* ***On the algorithm level***, GCoD integrates a split and conquer training strategy to polarize the graphs to be either denser or sparser in local neighborhoods without compromising the model accuracy, resulting in adjacency matrices that have two levels of workload and enjoys largely enhanced regularity and thus ease of acceleration.
 
-* On the hardware level, GCoD integrates a dedicated two-pronged accelerator to leverage GCoD algorithm's resulting graph adjacency matrices for further boosting the acceleration efficiency. Results of the two branches are then aggregated without conflicts.
+* ***On the hardware level***, GCoD integrates a dedicated two-pronged accelerator to leverage GCoD algorithm's resulting graph adjacency matrices for further boosting the acceleration efficiency. Results of the two branches are then aggregated without conflicts.
 
 <img src="./figures/overview.png" width="1000">
 
@@ -86,19 +86,20 @@ More examples are provided in `./scripts/cmd_tune.sh`.
 
 > Visualization of the Resulting Adjacency Matrix
 
-![adj](./figures/adj.png)
+<img src="./figures/adj.png" width="500">
 
 Visualization scripts are provided in `./scripts/cmd_plot.sh`
 
 ## Ideas in Hardware Architecture
 
-
+<img src="./figures/arch.png" width="500">
 
 ## Speedups over Other Platforms
 
 Extensive experiments and ablation studies validate that our GCoD consistently reduces the number of off-chip accesses, leading to speedups of 15286x, 294x, **7.8x**, and **2.5x** as compared to CPUs, GPUs, and prior-art GCN accelerators including [HyGCN](https://arxiv.org/abs/2001.02514) and [AWB-GCN](https://arxiv.org/abs/1908.10834), respectively
 
-![comp](./figures/comp.png)
+<!-- ![comp](./figures/comp.png) -->
+<img src="./figures/comp.png" width="1000">
 
 ## Citation
 
