@@ -1,6 +1,7 @@
 data/
 GCoD/
 adj_visualize.py
+Facebook100_dataset.py
 adj_visualize/
 scripts/comparison/
 scripts/HAGCN/
