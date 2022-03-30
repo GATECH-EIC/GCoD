@@ -4,7 +4,7 @@
 
 **Haoran You**, Tong Geng, Yongan Zhang, Ang Li, Yingyan Lin (Also credit to Cheng Wan's help and discussion on graph paritioning)
 
-Accepted by [HPCA 2022](https://hpca-conf.org/2022/) More Info:
+Accepted by [HPCA 2022](https://hpca-conf.org/2022/). More Info:
 \[ [**Paper**](https://arxiv.org/pdf/2112.11594.pdf) | [**Slide**](https://drive.google.com/file/d/1mLBhVV8orRa0RxKMniXUK0FRcmTL2_j4/view?usp=sharing) | [**Youtube**](https://www.youtube.com/watch?v=Zx1sMyzwOtY) | [**Github**](https://github.com/ranery/GCoD) \]
 
 ---
