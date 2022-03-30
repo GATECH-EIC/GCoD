@@ -2,10 +2,10 @@ data/
 GCoD/
 adj_visualize.py
 adj_visualize/
-script/comparison/
-script/HAGCN/
-script/HAGCN_HP/
-script/HAGCN_SP/
-script/sensitivity/
-script/SGCN_SP/
-script/cmd_QAT.py
+scripts/comparison/
+scripts/HAGCN/
+scripts/HAGCN_HP/
+scripts/HAGCN_SP/
+scripts/sensitivity/
+scripts/SGCN_SP/
+scripts/cmd_QAT.py
