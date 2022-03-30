@@ -4,7 +4,7 @@
 
 Accepted by [HPCA 2022](https://hpca-conf.org/2022/)
 
-[Paper](https://arxiv.org/pdf/2112.11594.pdf) | [Slide](https://github.com/ranery/GCoD/blob/main/HPCA-GCoD.pdf) | [Youtube](https://www.youtube.com/watch?v=Zx1sMyzwOtY) | [Codebase](https://github.com/ranery/GCoD)
+\[[Paper](https://arxiv.org/pdf/2112.11594.pdf) | [Slide](https://github.com/ranery/GCoD/blob/main/HPCA-GCoD.pdf) | [Youtube](https://www.youtube.com/watch?v=Zx1sMyzwOtY) | [Codebase](https://github.com/ranery/GCoD)\]
 
 ## Overview of the Co-Design Framework
 
@@ -83,7 +83,7 @@ Visualization scripts are provided in `./scripts/cmd_plot.sh`
 
 ## Speedups over Other Platforms
 
-Extensive experiments and ablation studies validate that our GCoD consistently reduces the number of off-chip accesses, leading to speedups of 15286x, 294x, 7.8x, and 2.5x as compared to CPUs, GPUs, and prior-art GCN accelerators including HyGCN and AWB-GCN, respectively
+Extensive experiments and ablation studies validate that our GCoD consistently reduces the number of off-chip accesses, leading to speedups of 15286x, 294x, 7.8x, and 2.5x as compared to CPUs, GPUs, and prior-art GCN accelerators including [HyGCN](https://arxiv.org/abs/2001.02514) and [AWB-GCN](https://arxiv.org/abs/1908.10834), respectively
 
 ![comp](./figures/comp.png)
 
